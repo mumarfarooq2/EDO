@@ -1,0 +1,94 @@
+create temporary table tempdb.asa
+-- select 
+select dayname(a.call_time) day_name,
+
+date(a.call_time) day, 
+#hour(a.call_time) hour,
+case when dn IN (22011,66053,68126,43145,43096) then 'Home Renewals'
+            when dn IN (20337,20372,20374,22057,22070,22100,22952,30156,30168,31003,43018,43029,43036,43064,43083,43147,43232,43247,43252,43280,57367,66017,66024,29108,73365,68121,71872,72413,73319,73352,73392,73640,79583,79603,79622,79625,66061)
+			then 'Motor Renewals'
+            when dn IN (29123,20302,20304,20306,20312,20314,20322,20323,20327,20336,20345,20346,20351,20354,20356,20361,20365,20366,20380,20391,20403,20408,20421,20422,20423,20425,20427,20428,20429,20435,20439,20440,20442,20443,20486,20766,22046,22047,22080,22929,22930,22959,22960,29110,29115,29129,30160,30161,30287,30568,31009,31010,31014,31026,33095,41014,41027,41030,41040,41041,41042,41043,41044,41045,41046,41047,41048,41049,41063,43001,43007,43044,43045,43046,43047,43049,43062,43078,43080,43100,43105,43149,43151,43153,43239,43241,43242,43244,43254,43255,43256,43258,43259,46018,46021,46507,66028,66030,79560,20305,43002,46505,73336,68145,71848,72101,72204,72377,72378,72391,72412,72414,72458,73301,73302,73303,73304,73311,73316,73337,73348,73356,73363,73374,73380,73398,73410,73425,73433,73438,73445,73446,73459,73461,73463,73468,73473,73474,73696,79525,79581,79582,79591,68112,66043,66065)
+            then 'Motor Sales'
+            else 'others' end AS Queue,
+/*
+case 
+when b.agent_percentile_actual between 0 and 0.1 then 1
+when b.agent_percentile_actual between 0.1 and 0.2 then 2
+when b.agent_percentile_actual between 0.2 and 0.3 then 3
+when b.agent_percentile_actual between 0.3 and 0.4 then 4
+when b.agent_percentile_actual between 0.4 and 0.5 then 5
+when b.agent_percentile_actual between 0.5 and 0.6 then 6
+when b.agent_percentile_actual between 0.6 and 0.7 then 7
+when b.agent_percentile_actual between 0.7 and 0.8 then 8
+when b.agent_percentile_actual between 0.8 and 0.9 then 9
+when b.agent_percentile_actual between 0.9 and 1 then 10
+end AP_decile,
+
+case 
+when b.call_percentile_actual between 0 and 0.1 then 1
+when b.call_percentile_actual between 0.1 and 0.2 then 2
+when b.call_percentile_actual between 0.2 and 0.3 then 3
+when b.call_percentile_actual between 0.3 and 0.4 then 4
+when b.call_percentile_actual between 0.4 and 0.5 then 5
+when b.call_percentile_actual between 0.5 and 0.6 then 6
+when b.call_percentile_actual between 0.6 and 0.7 then 7
+when b.call_percentile_actual between 0.7 and 0.8 then 8
+when b.call_percentile_actual between 0.8 and 0.9 then 9
+when b.call_percentile_actual between 0.9 and 1 then 10
+end CP_decile,
+*/
+count(distinct a.guid) as totalcalls,
+count(distinct ans_agent) distinct_Agent_count,
+sum(case when abandon = -1 and answ_time is not null then 1 else 0 end) as ANS_Calls,
+sum(case when a.benchmark = -1  then 1 else 0 end) as BM_None_Calls,
+sum(case when abandon <> -1 and answ_time is null then 1 else 0 end) as ABN_Calls,
+(100 * sum(case when abandon <> -1 and answ_time is null and a.benchmark in (0,1) then 1 else 0 end) ) / count(distinct a.acd_uid) as ABN_Calls_per,
+
+sum(case when abandon <> -1 and answ_time is null and a.benchmark = 1 then 1 else 0 end) as on_ABN_Calls,
+sum(case when abandon <> -1 and answ_time is null and (a.benchmark = 0) then 1 else 0 end) as off_ABN_Calls,
+
+100 * avg(case when a.benchmark = 1 then 1 else 0 end) as on_Calls_per,
+100 * avg(case when a.benchmark = 0 then 1 else 0 end) as off_Calls_per,
+
+avg(case when abandon = -1 then time_to_sec(timediff(disp_time,answ_time)) end) AHT,
+sum(case when abandon = -1 and a.benchmark = 1 then time_to_sec(timediff(disp_time,answ_time)) end) / sum(case when a.benchmark = 1 then 1 else 0 end) AHT_on2,
+sum(case when abandon = -1 and a.benchmark = 0 then time_to_sec(timediff(disp_time,answ_time)) end) / sum(case when a.benchmark = 0 then 1 else 0 end) AHT_off2,
+(sum(case when abandon = -1 and a.benchmark = 1 then time_to_sec(timediff(disp_time,answ_time)) end) / sum(case when a.benchmark = 1 then 1 else 0 end)
+- sum(case when abandon = -1 and a.benchmark = 0 then time_to_sec(timediff(disp_time,answ_time)) end) / sum(case when a.benchmark = 0 then 1 else 0 end)) AHT_On_Vs_Off_Diff,
+
+avg(case when abandon = -1 and a.benchmark in (1,0) then time_to_sec(timediff(answ_time,a.call_time)) end) ASA,
+sum(case when abandon = -1 and a.benchmark = 1 then time_to_sec(timediff(answ_time,a.call_time)) end) / sum(case when a.benchmark = 1 then 1 else 0 end) ASA_on2,
+sum(case when abandon = -1 and a.benchmark =0 then time_to_sec(timediff(answ_time,a.call_time)) end) / sum(case when a.benchmark = 0 then 1 else 0 end) ASA_off2,
+(sum(case when abandon = -1 and a.benchmark = 1 then time_to_sec(timediff(answ_time,a.call_time)) end) / sum(case when a.benchmark = 1 then 1 else 0 end) - 
+sum(case when abandon = -1 and a.benchmark =0 then time_to_sec(timediff(answ_time,a.call_time)) end) / sum(case when a.benchmark = 0 then 1 else 0 end)) On_Vs_Off_ASA_Diff, 
+
+sum(case when a.benchmark in (1,0) then queue_time / 1000 end) / sum(case when a.benchmark in (1,0) then 1 else 0 end) avg_queuetime,
+
+sum(case when native_skill_data like '%"AgentSurplus":0%' then 1 else 0 end) as L2Calls,
+100 * avg(case when native_skill_data like '%"AgentSurplus":0%' then 1 else 0 end) as L2Calls_per,
+
+sum(case when native_skill_data like '%"AgentSurplus":1%' then 1 else 0 end) as L1Calls,
+100 * avg(case when native_skill_data like '%"AgentSurplus":1%' then 1 else 0 end) as L1Calls_per,
+
+sum(case when a.routing_status = 5  then 1 else 0 end) as Call_SLABlown,
+100 * avg(case when a.routing_status = 5  then 1 else 0 end) as Call_SLABlown_per,
+100 * (sum(case when a.routing_status = 5 and a.benchmark = 1  then 1 else 0 end) / sum(case when a.benchmark = 1  then 1 else 0 end)) as on_Call_SLABlown_per2,
+100 * (sum(case when a.routing_status = 5 and a.benchmark = 0  then 1 else 0 end) / sum(case when a.benchmark = 0  then 1 else 0 end)) as off_Call_SLABlown_per2,
+100 * abs((sum(case when a.routing_status = 5 and a.benchmark = 1  then 1 else 0 end) / sum(case when a.benchmark = 1  then 1 else 0 end)) - 
+(sum(case when a.routing_status = 5 and a.benchmark = 0  then 1 else 0 end) / sum(case when a.benchmark = 0  then 1 else 0 end))) on_Vs_Off_SLA_Diff,
+
+avg(b.agent_percentile_actual) agent_percentile_actual, avg(b.call_percentile_actual) call_percentile_actual
+
+from afiniti.t_acdr a left outer join afiniti.t_acdr_extended c on a.guid = c.ixn_guid
+inner join afiniti_3.eval_summary b on a.guid = b.call_guid 
+
+where a.call_time between @startTime and @endTime
+
+and c.data_creation_time between  @startTime and @endTime
+-- and a.dn in (Select vdn from sagasatmap.`engine.vdn` where BenchmarkId = 10)
+and a.routed_agent_group <> 0 
+group by 1,2,3
+order by 1 desc
+
+
+-- Testing
