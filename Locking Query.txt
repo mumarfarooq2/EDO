@@ -1,3 +1,4 @@
+-- by Muhammad Umar Farooq
 create temporary table tempdb.asa
 -- select 
 select dayname(a.call_time) day_name,
